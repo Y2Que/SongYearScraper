@@ -4,6 +4,8 @@ import requests
 import re
 import creds as c
 
+DEBUGGING = True
+
 #
 # This function takes an input string and looks for the
 # word release and a year within the text.
@@ -69,12 +71,14 @@ def parse_google_results(strData, searchResults):
             case _:
                 print('Unknown metadata tag')
 
+    if DEBUGGING: print(results)
+
     return mode(results)
 
 #
 #
 #
-def print_google_results(searchResults):
+def print_google_results(searchResults, pageStart):
     # iterate over Google search results
     for index, result in enumerate(searchResults, start=1):
         try:
@@ -89,6 +93,7 @@ def print_google_results(searchResults):
         #html_snippet = search_item.get("htmlSnippet")
 
         # print the results
+        print()
         print("="*10, f"Result #{index+pageStart-1}", "="*10)
         print(f"Title: {title}")
         print(f"Snippet: {snippet}")
@@ -131,7 +136,7 @@ def google(strData, strQuery):
     data = requests.get(url).json()  # make the API request
     search_items = data.get("items") # get the result items
 
-    #print_google_results(search_items)
+    if DEBUGGING: print_google_results(search_items, pageStart)
     
     final_result = parse_google_results(strData, search_items)
 

@@ -1,79 +1,70 @@
 
-from statistics import mode
-import requests
-import re
-import creds as c
+from pathlib import Path
+from assets.metadata import google_update_year
+
+debugLog = True
+enableFileDeletion = False
 
 #
-# This function takes an input string and looks for the
-# word release and a year within the text.
-# The return value is 'None' or the year found
 #
-def search_for_release_year(strInput):
+#
+#
+def check_for_duplicates(searchFile, inputPath):
 
-    # set unput string to lower case
-    strInput = strInput.lower()
+    for currentFile in inputPath.iterdir():               # loop thru files in directory
+        if currentFile.is_dir():                          # do not act on folders
+            check_for_duplicates(searchFile, currentFile) # recusive call for folders
+        else:
+            # do not check file against itself
+            if not searchFile == currentFile:
 
-    # search for the word release before or after a year beginning with 19 or 20
-    regexYear = re.search(r'(release.*(19|20)\d{2})|((19|20)\d{2}.*release)', strInput)
-    # if release year found, get year
-    if regexYear:
-        releaseYear = re.search(r'(19|20)\d{2}', regexYear.group(0)).group(0)
-    else:
-        releaseYear = "None"
+                # define variables of interest
+                searchFileName = searchFile.stem
+                currentFileName = currentFile.stem
+                searchFileSize = searchFile.stat().st_size
+                currentFileSize = currentFile.stat().st_size
 
-    return releaseYear
+                # search for searchFile name in currentFile name
+                if currentFileName.find(searchFileName) <= 0:
+                    # check if files are the same size
+                    if currentFileSize == searchFileSize:
 
-debugEnabled = False
+                        if debugLog:
+                            print()
+                            print(f'            Search File: {searchFile.stem}')
+                            print(f'       Search File Path: {searchFile}')
+                            print(f'           Currnet File: {currentFile.stem}')
+                            print(f'      Current File Path: {currentFile}')                    
+                            print(f'***Duplicate file found: {currentFileName}')
 
-query = "release date, song, Michael Jackson Billie Jean"
+                        if enableFileDeletion:
+                            # delete duplicate file
+                            currentFile.unlink()
+                        
+#
+# This function calls itself, iterating thru
+# all subfolders
+# Place desired action in the "else:" statement
+#
+def file_iterator(inputPath):
+    for file in inputPath.iterdir(): # loop thru files in directory
+        if file.is_dir():            # do not act on folders
+            file_iterator(file)      # recusive call for folders
+        else:
+                
+            #################################################
+            ### # update song year based on google search ###
+            ### google_update_year(file)                  ###
+            #################################################
 
-# use the first page in the search results.
-page = 1
+            # delete duplicates
+            check_for_duplicates(file, inputPath)
+                  
+#
+#
+#
+#
+#songPath = WindowsPath('E:/Music/Jaimito_Library/2000s/2000s_Slow/2000s_Slow_DONE')
+songPath = Path('D:\Git\SongYearScraper\songs')
 
-# constructing the URL
-# doc: https://developers.google.com/custom-search/v1/using_rest
-# calculating start, (page=2) => (start=11), (page=3) => (start=21)
-pageStart = (page - 1) * 10 + 1
-url = f"https://www.googleapis.com/customsearch/v1?key={c.API_KEY}&cx={c.SEARCH_ENGINE_ID}&q={query}&start={pageStart}"
-
-# make the API request
-data = requests.get(url).json()
-results = []
-
-# get the result items
-search_items = data.get("items")
-# iterate over 10 results found
-for index, search_item in enumerate(search_items, start=1):
-    try:
-        long_description = search_item["pagemap"]["metatags"][0]["og:description"]
-    except KeyError:
-        long_description = "N/A"
-    # get the page title
-    title = search_item.get("title")
-    # page snippet
-    snippet = search_item.get("snippet")
-    # alternatively, you can get the HTML snippet (bolded keywords)
-    html_snippet = search_item.get("htmlSnippet")
-    # extract the page url
-    link = search_item.get("link")
-
-    # look for release year
-    release_year = search_for_release_year(long_description)
-    if release_year == "None":
-        release_year = search_for_release_year(snippet)
-
-    if release_year != "None":
-        results.append(int(release_year))
-
-    # print the results
-    if debugEnabled:
-        print("="*10, f"Result #{index+pageStart-1}", "="*10)
-        print(f"Title: {title}")
-        print(f"Release Year: {release_year}")
-        print(f"Snippet: {snippet}")
-        print(f"Description: {long_description}")
-        print(f"URL: {link}")
-
-print(results)
-print(mode(results))
+file_iterator(songPath)
